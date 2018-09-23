@@ -1,8 +1,8 @@
 import requests, time, base64, re
 import http.cookiejar as cookielib
 import execjs
-from crypto.Cipher import PKCS1_v1_5
-from crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.PublicKey import RSA
 
 
 session = requests.session()
@@ -10,17 +10,18 @@ session.cookies = cookielib.LWPCookieJar(filename='cookies.txt')
 gid = ''
 token = ''
 key = ''
+traceid=''
 
-
-def get_js():
+def get_js(f_name):
     '''通过gid.js生成gid'''
-    f = open("gid.js", 'r', encoding='UTF-8')
+    f = open(f_name, 'r', encoding='UTF-8')
     line = f.readline()
     htmlstr = ''
     while line:
         htmlstr = htmlstr + line
         line = f.readline()
     ctx = execjs.compile(htmlstr)
+
     return ctx
 
 
@@ -36,7 +37,8 @@ def get_token():
     '''获取token'''
     global gid
     get_basicCookie()
-    gid = get_js()
+    gid = get_js('gid.js')
+    print(gid)
     url = 'https://passport.baidu.com/v2/api/?getapi'
     header = {
         'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.108 Safari/537.36',
@@ -188,43 +190,42 @@ def login():
             }
             session.get('https://passport.baidu.com/v2/?checkvcode', headers=header, params=check_data)
         elif err == 'err_no=120021':
-            print(url_)
-            codestring = re.match('.*codeString=([a-zA-Z0-9]+)&.*', url_).groups()
-            print(codestring)
-            userName = re.match('.*userName=(.*)&.*', url_).groups()
-            print(userName)
-            lstr = re.match('.*lstr=([a-zA-Z0-9]+)&.*', url_).groups()
-            print(lstr)
-
-            ltoken  = re.match('.*ltoken=([a-zA-Z0-9]+)&.*', url_).group(1)
-            authtoken  = re.match('.*authtoken=([a-zA-Z0-9]+)&.*', url_).group(1)
-            tpl  = re.match('.*tpl=([a-zA-Z0-9]+)&.*', url_).group(1)
-            traceid  = re.match('.*traceid=([a-zA-Z0-9]+)&.*', url_).group(1)
-            callback  = re.match('.*callback=([a-zA-Z0-9]+)&.*', url_).group(1).split('.')[1]
-            email_require_url = "https://passport.baidu.com/v2/sapi/authwidgetverify"
-            u = re.match('.*u=([a-zA-Z0-9]+)&lstr=.*', url_).group(1)
-            parms = {
-                "authtoken":token,
-                "type":"email",
-                "jsonp":1,
-                "apiver":"v3",
-                "verifychannel":"",
-                "action":"send",
-                "vcode":"",
-                "questionAndAnswer":"",
-                "needsid":"",
-                "rsakey": "",
-                "countrycode": "",
-                "subpro": "",
-                'u': 'https://www.baidu.com/',
-                "lstr": "",
-                "ltoken": "",
-                "tpl": "",
-                "winsdk": "",
-                "authAction":"",
-                "":""
-
-                     }
+            while True:
+                global traceid
+                print(url_)
+                lstr = re.match('.*lstr=(.*?)&.*', url_).group(1)
+                ltoken  = re.match('.*ltoken=(.*?)&.*', url_).group(1)
+                authtoken  = re.match('.*authtoken=(.*?)&.*', url_).group(1)
+                tpl  = re.match('.*tpl=(.*?)&.*', url_).group(1)
+                traceid  = get_js("traceid.js")
+                callback  = re.match('.*callback=.*?\.(.*?)&.*', url_).group(1)
+                email_require_url = "https://passport.baidu.com/v2/sapi/authwidgetverify"
+                parms = {
+                    "authtoken":authtoken,
+                    "type":"email",
+                    "jsonp":1,
+                    "apiver":"v3",
+                    "verifychannel":"",
+                    "action":"send",
+                    "vcode":"",
+                    "questionAndAnswer":"",
+                    "needsid":"",
+                    "rsakey": "",
+                    "countrycode": "",
+                    "subpro": "",
+                    'u': 'https://www.baidu.com/',
+                    "lstr": lstr,
+                    "ltoken": ltoken,
+                    "tpl": tpl,
+                    "winsdk": "",
+                    "authAction":"",
+                    "traceid":traceid,
+                    "callback":callback
+                         }
+                email = session.get(email_require_url, headers=header, params=parms)
+                print(email.content.decode('utf-8'))
+                print(parms)
+                break
             email_verifycode = input('邮箱验证码：')
 
         else:
